@@ -19,7 +19,7 @@ echo "Starting..." >> "$LOG_FILE"
 # MySQL database credentials
 DB_USER="CHANGE_ME"
 DB_PASS="CHANGE_ME"
-DB_NAME="CHANGE_ME"
+DB_NAME="CHNGE_ME"
 DB_FILE="$DB_NAME-$NOW.sql"
 
 timestamp() {
@@ -71,7 +71,7 @@ execute "rm /tmp/${DB_FILE}" "Remove /tmp/${DB_FILE}"
 # log_message "Zipping up the archive"
 execute "gzip -f -9 ${BACKUP_DIR}/${FILE}" "Gunzip to ${FILE}.gz"
 GZ_TOTAL_FILESIZE=$(du -h ${BACKUP_DIR}/"${FILE}".gz | awk '{ print $1 }')
-# execute "aws s3 cp ${BACKUP_DIR}/${FILE}.gz ${S3_BUCKET}" "Upload ${FILE}.gz to ${S3_BUCKET}"
+execute "aws s3 cp ${BACKUP_DIR}/${FILE}.gz ${S3_BUCKET}" "Upload ${FILE}.gz to ${S3_BUCKET}"
 execute "aws s3 cp ${LOG_FILE} ${S3_BUCKET}" "Upload ${LOG_FILE} to ${S3_BUCKET}"
 execute "rm ${BACKUP_DIR}/${FILE}.gz" "Remove local ${BACKUP_DIR}/${FILE}.gz"
 # Finish
