@@ -8,11 +8,11 @@
 # Set the date format, filename and the directories where your backup files
 # will be placed and which directory will be archived.
 NOW=$(date +'%Y-%m-%d')
-SITENAME="magento1-52-73-17-216" # Different for each magento server
+SITENAME="magento3-34-194-155-1" # Different for each magento server
 FILE="$SITENAME-$NOW.tar"
 BACKUP_DIR="/home/bitnami/backups"
 WWW_DIR="/home/bitnami/apps/magento/htdocs"
-LOG_FILE="/home/bitnami/backups/mo1_backup.log" # Different backup log for each server
+LOG_FILE="/home/bitnami/backups/mo3_backup.log" # Different backup log for each server
 S3_BUCKET='s3://webvision-backups'
 
 echo "Starting..." >> "$LOG_FILE"
