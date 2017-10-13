@@ -8,6 +8,7 @@ BACKUP_TO = '/home/tswider/Projects/webvision-backups'
 DB_USER = ''
 DB_PASS = ''
 DB_NAME = ''
+DB_FILE = input('Enter db backup file name: ')
 
 def zipdir(path, ziph):
     # ziph is zipfile handle
@@ -16,7 +17,9 @@ def zipdir(path, ziph):
             ziph.write(os.path.join(root, file))
 
 def database_bkp():
-    args = ['mysqldump', '-u', 'UNAME', '-pPASSWORD', '--add-drop-database', '--databases', 'DB']
+    logging.info('MySQLDump DB: ' + DB_NAME)
+    with open(DB_FILE, 'wb', 0) as f:
+        subprocess.call(['mysqldump', '-u', DB_USER, '-p' + DB_PASS, '--add-drop-database', '--databases', DB_NAME],stdout=f)
 
 def main():
     logging.basicConfig(filename='backup.log', format='%(levelname)s:%(message)s', level=logging.INFO)
