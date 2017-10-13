@@ -17,9 +17,10 @@ def zipdir(path, ziph):
             ziph.write(os.path.join(root, file))
 
 def database_bkp():
+    #TODO Add try/catch block
     logging.info('MySQLDump DB: ' + DB_NAME)
-    with open(DB_FILE, 'wb', 0) as f:
-        subprocess.call(['mysqldump', '-u', DB_USER, '-p' + DB_PASS, '--add-drop-database', '--databases', DB_NAME],stdout=f)
+    with open(DB_FILE, 'wb', 0) as f, open('backup.log', 'a') as e:
+        subprocess.call(['mysqldump', '-u', DB_USER, '-p' + DB_PASS, '--add-drop-database', '--databases', DB_NAME], stdout=f, stderr=e)
 
 def main():
     logging.basicConfig(filename='backup.log', format='%(levelname)s:%(message)s', level=logging.INFO)
