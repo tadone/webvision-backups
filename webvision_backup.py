@@ -1,15 +1,23 @@
 #!/usr/bin/env python
+'''Backup Script'''
 
-import os, sys, zipfile, logging, subprocess
+import os
+import sys
+import zipfile
+import logging
+import subprocess
+import datetime
 
-# BACKUP_WEB = '/home/tswider/Projects/webvision-backups'
-# BACKUP_TO = '/home/tswider/Projects/webvision-backups'
-# DB_USER = ''
-# DB_PASS = ''
-# DB_NAME = ''
-DB_FILE = input('Enter db backup file name: ')
+WEB_DIR = '/home/bitnami/apps/magento/htdocs'
+EXCLUDE_DIRS = ['session', 'cache'] # Directories to exclude
+SITE_NAME = 'magento1-52-73-17-216'
+DB_FILE = SITE_NAME +'.sql'
+ZIP_FILE = SITE_NAME + '_' + datetime.datetime.now().strftime("%y%m%d_%H%M") + '.zip'
+CREDENTIALS_FILE = '/home/bitnami/credentials.txt'
+logging.basicConfig(filename='backup.log', format='%(levelname)s:%(message)s', level=logging.INFO)
 
 def read_creds(cred_file):
+    '''Read credentials'''
     try:
         with open(cred_file, 'r') as f:
             credentials = [x.strip().split(':') for x in f.readlines()]
@@ -27,42 +35,47 @@ def read_creds(cred_file):
                 logging.error('Coorrect values not supplied!')
                 sys.exit('Correct values not supplied! Exiting...')
     except FileNotFoundError:
-        logging.error('File ' + cred_file + ' not found!')
+        logging.error('File %s not found!', cred_file)
 
-def zipdir(path, ziph):
+def zipdir(path, ziph, exclude):
+    '''Zip up the directory excluding some subdirs'''
     # ziph is zipfile handle
-    for path, dirs, files in os.walk(path):
-        if 'cache' in dirs:
-            dirs.remove('cache')
-        elif 'session' in dirs:
-            dirs.remove('session')
-        ziph.write(dirname)
+    for dirname, subdirs, files in os.walk(path):
+        subdirs[:] = [d for d in subdirs if d not in exclude]
         for file in files:
-            ziph.write(os.path.join(path, file))
-
-def test_path(path):
-    for path, dirs, files in os.walk(path):
-        if ''
+            ziph.write(os.path.join(dirname, file))
 
 def database_bkp(dbuser, dbpass, dbname, dbfile):
-    logging.warning('MySQLDump DB: ' + dbname)
+    '''Backup Database'''
+    logging.warning('MySQLDump DB: %s', dbname)
     try:
         with open(dbfile, 'wb', 0) as f, open('backup.log', 'a') as e:
-            subprocess.call(['mysqldump', '-u', dbuser, '-p' + dbpass, '--add-drop-database', '--databases', dbname], stdout=f, stderr=e)
+            subprocess.call(['mysqldump', '-u', dbuser, '-p' + dbpass, '--add-drop-database', \
+            '--databases', dbname], stdout=f, stderr=e)
     except Exception as err:
         logging.error('MySQLDump encounter critical error: ' + str(err))
         sys.exit('MySQLDump encounter critical error! Exiting...')
         # raise
+
 def main():
-    logging.basicConfig(filename='backup.log', format='%(levelname)s:%(message)s', level=logging.INFO)
-    logging.info('Started')
-    # zipf = zipfile.ZipFile('Python.zip', 'w', zipfile.ZIP_DEFLATED)
-    # zipdir('/home/tswider/Projects/webvision-backups', zipf)
-    # zipf.close()
-    read_creds("credentials.txt")
-    logging.warning('credentials info: DB:' + DB_NAME + ', User: ' + DB_USER +  ', Password: ' + DB_PASS)
+    '''Main script'''
+    logging.info('Backup started: ' + datetime.datetime.now().strftime("%Y-%m-%d %I:%M%p"))
+    # Read Credentials
+    read_creds(CREDENTIALS_FILE)
+
+    logging.info('MySQLDump to %s', DB_NAME)
+    logging.info('Credentials info: DB: %s, User: %s, Password: %s', DB_NAME, DB_USER, DB_PASS)
+    # Backup Database
     database_bkp(DB_USER, DB_PASS, DB_NAME, DB_FILE)
-    logging.info('Finished')
+
+    logging.info('Create zip archive from %s and %s', WEB_DIR, DB_FILE)
+    # Archive web directory
+    zipf = zipfile.ZipFile(ZIP_FILE, 'w', zipfile.ZIP_DEFLATED)
+    zipdir(WEB_DIR, zipf, EXCLUDE_DIRS)
+    zipf.write(DB_FILE)
+    zipf.close()
+
+    logging.info('Success ' + datetime.datetime.now().strftime("%Y-%m-%d %I:%M%p"))
 
 if __name__ == '__main__':
     main()
