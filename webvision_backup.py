@@ -83,7 +83,7 @@ def database_bkp(dbuser, dbpass, dbname, dbfile):
 
 def s3_upload(s3file, s3bucket):
     '''Upload to S3'''
-    logging.info('Upload %s to S3', s3file)
+    logging.info('Uploading %s to AWS S3', s3file)
     try:
         with open('backup.log', 'a') as f:
             subprocess.call(['aws', 's3', 'cp', s3file, s3bucket], stdout=f, stderr=f)
@@ -106,7 +106,8 @@ def main():
     opts = my_opts()
     credentials_file = opts['creds']
     site_name = opts['site']
-    logging.basicConfig(filename=site_name + '.backup.log', format='%(levelname)s:%(message)s', level=logging.INFO)
+    backup_log = site_name + '.backup.log'
+    logging.basicConfig(filename=backup_log, format='%(levelname)s:%(message)s', level=logging.INFO)
     logging.info('\n### Backup started: ' + datetime.datetime.now().strftime("%Y-%m-%d %I:%M%p") \
     + ' ###')
 
@@ -120,11 +121,14 @@ def main():
     # Archive web directory
     zipf = zipfile.ZipFile(zip_file, 'w', zipfile.ZIP_DEFLATED)
     zipdir(WEB_DIR, zipf, EXCLUDE_DIRS)
+    logging.info('Appending %s database to zip file', db_file)
     zipf.write(db_file)
     zipf.close()
-
-    s3_upload(zip_file, S3_BUCKET) # Upload to S3
+    total_size = int(os.path.getsize(zip_file)) / 1000000
+    s3_upload(zip_file, S3_BUCKET) # Upload zip file to S3
+    s3_upload(backup_log, S3_BUCKET) # Upload log to S3
     cleanup(zip_file, db_file) # Remove local files
+    logging.info('Total file size: %s MB', total_size)
     logging.info('Success ' + datetime.datetime.now().strftime("%Y-%m-%d %I:%M%p"))
 
 if __name__ == '__main__':
