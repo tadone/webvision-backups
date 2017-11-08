@@ -10,9 +10,11 @@ import datetime
 import getopt
 
 # Global Variables
-WEB_DIR = '/home/bitnami/apps/magento/htdocs'
-EXCLUDE_DIRS = ['session', 'cache'] # Directories to exclude
+WEB_DIR = '/home/bitnami/apps/magento/htdocs'  # Directory to backup
+EXCLUDE_DIRS = ['session', 'cache']  # Directories to exclude
 S3_BUCKET = 's3://webvision-backups'
+sqldump = '/opt/bitnami/mysql/bin/mysqldump'  # Specify mysqldump binary location
+
 
 # Function Definitions
 def read_creds(cred_file):
@@ -36,10 +38,12 @@ def read_creds(cred_file):
     except FileNotFoundError:
         logging.error('File %s not found!', cred_file)
 
+
 def usage():
     '''Print Usage'''
-    print('backup.py --site-name=magento1 --credentials-file=credentials.txt')
-    print('backup.py -s magento1 -c credentials.txt')
+    print('Usage: backup.py --site-name=<site> --credentials-file=<credentials.txt>\nUsage (Short): backup.py \
+    -s magento1 \t-c credentials.txt')
+
 
 def my_opts():
     '''Get command line options'''
@@ -59,27 +63,30 @@ def my_opts():
             cmd_opts['creds'] = arg
     return cmd_opts
 
+
 def zipdir(path, ziph, exclude):
     '''Zip up the directory excluding some subdirs'''
-    logging.info('Create zip archive from %s excluding %s', path, exclude)
+    logging.info('Creating zip archive from %s excluding %s', path, exclude)
     # ziph is zipfile handle
     for dirname, subdirs, files in os.walk(path):
         subdirs[:] = [d for d in subdirs if d not in exclude]
         for file in files:
             ziph.write(os.path.join(dirname, file))
 
+
 def database_bkp(dbuser, dbpass, dbname, dbfile):
     '''Backup Database'''
-    logging.info('MySQLDump DB: %s', dbname)
-    logging.info('Credentials info: DB: %s, User: %s, Password: %s', dbname, dbuser, dbpass)
+    logging.info('Dumping MySQL DB: %s', dbname)
+    # logging.info('Credentials info: DB: %s, User: %s, Password: %s', dbname, dbuser, dbpass)
     try:
         with open(dbfile, 'wb', 0) as f, open('backup.log', 'a') as e:
-            subprocess.call(['mysqldump', '-u', dbuser, '-p' + dbpass, '--add-drop-database', \
-            '--databases', dbname], stdout=f, stderr=e)
+            subprocess.call([sqldump, '-u', dbuser, '-p' + dbpass, '--add-drop-database',
+                            '--databases', dbname], stdout=f, stderr=e)
     except Exception as err:
         logging.error('MySQLDump encounter critical error: ' + str(err) + '\nExiting...')
         sys.exit('MySQLDump encounter critical error! Exiting...')
         # raise
+
 
 def s3_upload(s3file, s3bucket):
     '''Upload to S3'''
@@ -91,6 +98,7 @@ def s3_upload(s3file, s3bucket):
         logging.error('AWS CLI encounter critical error: ' + str(err) + '\nExiting...')
         sys.exit('AWS CLI encounter critical error! Exiting...')
 
+
 def cleanup(*args):
     '''Remove local file'''
     try:
@@ -101,35 +109,37 @@ def cleanup(*args):
         logging.error('The %s file was not found. Exiting...', args)
         sys.exit(err)
 
+
 def main():
     '''Main script'''
-    opts = my_opts()
+    opts = my_opts()  # Unpack vars from getopt
+    # Set Variables
     credentials_file = opts['creds']
     site_name = opts['site']
     backup_log = site_name + '.backup.log'
-    logging.basicConfig(filename=backup_log, format='%(levelname)s:%(message)s', level=logging.INFO)
-    logging.info('\n### Backup started: ' + datetime.datetime.now().strftime("%Y-%m-%d %I:%M%p") \
-    + ' ###')
-
-    db_file = site_name +'.sql'
+    db_file = site_name + '.sql'
     zip_file = site_name + '_' + datetime.datetime.now().strftime("%Y%m%d_%H%M") + '.zip'
+    logging.basicConfig(filename=backup_log, format='%(levelname)s:%(message)s', level=logging.INFO)
+    logging.info('### Backup started: ' + datetime.datetime.now().strftime("%Y-%m-%d %I:%M%p") + ' ###')
+    # Read credentials file
     read_creds(credentials_file)
-
     # Backup Database
     database_bkp(DB_USER, DB_PASS, DB_NAME, db_file)
-
     # Archive web directory
     zipf = zipfile.ZipFile(zip_file, 'w', zipfile.ZIP_DEFLATED)
     zipdir(WEB_DIR, zipf, EXCLUDE_DIRS)
     logging.info('Appending %s database to zip file', db_file)
     zipf.write(db_file)
     zipf.close()
-    total_size = int(os.path.getsize(zip_file)) / 1000000
-    s3_upload(zip_file, S3_BUCKET) # Upload zip file to S3
-    s3_upload(backup_log, S3_BUCKET) # Upload log to S3
-    cleanup(zip_file, db_file) # Remove local files
-    logging.info('Total file size: %s MB', total_size)
-    logging.info('Success ' + datetime.datetime.now().strftime("%Y-%m-%d %I:%M%p"))
+    total_size = int(os.path.getsize(zip_file)) / 1048576  # Get file size in MB
+    # S3 Upload
+    s3_upload(zip_file, S3_BUCKET)  # Upload zip file to S3
+    s3_upload(backup_log, S3_BUCKET)  # Upload log to S3
+    # Cleanup
+    cleanup(zip_file, db_file)  # Remove local files
+    logging.info('Total file size: %s MB', round(total_size, 1))
+    logging.info('Success ' + datetime.datetime.now().strftime("%Y-%m-%d %I:%M%p"+'\n'))
+
 
 if __name__ == '__main__':
     main()
